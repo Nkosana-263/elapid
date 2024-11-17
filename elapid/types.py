@@ -10,7 +10,7 @@ import pyproj
 
 # typing
 Number = Union[int, float]
-ArrayLike = Union[unumpy.ndarray, pd.DataFrame]
+ArrayLike = Union[unumpy.uarray, pd.DataFrame]
 CRSType = Union[pyproj.CRS, str]
 Vector = Union[gpd.GeoSeries, gpd.GeoDataFrame]
 
