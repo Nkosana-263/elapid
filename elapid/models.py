@@ -254,7 +254,7 @@ class SDMMixin:
             upper_ci[idx] = mean[idx] + z_score * stdv[idx]
             bins[idx] = grid_values
 
-        return bins, mean, stdv, upper_ci, lower_ci
+        return bins, mean, stdv, lower_ci, upper_ci
 
     def partial_dependence_plot(
         self,
@@ -263,8 +263,9 @@ class SDMMixin:
         n_bins: int = 50,
         categorical_features: tuple = None,
         labels: list = None,
+        ci_level: float = 0.95,
         **kwargs,
-    ) -> Tuple[plt.Figure, plt.Axes]:
+    ) -> Tuple[plt.Figure, np.ndarray]:
         """Plot the response of an estimator across the range of feature values.
 
         Args:
@@ -286,8 +287,8 @@ class SDMMixin:
             except AttributeError:
                 categorical_features = [None]
 
-        bins, mean, stdv = self.partial_dependence_scores(
-            x, percentiles=percentiles, n_bins=n_bins, categorical_features=categorical_features
+        bins, mean, stdv, lower_ci, upper_ci = self.partial_dependence_scores(
+            x, percentiles=percentiles, n_bins=n_bins, categorical_features=categorical_features, ci_level=ci_level
         )
 
         if labels is None:
@@ -299,21 +300,38 @@ class SDMMixin:
         ncols = x.shape[1]
         figx = int(np.ceil(np.sqrt(ncols)))
         figy = int(np.ceil(ncols / figx))
-        fig, ax = plt.subplots(figx, figy, **kwargs)
+        
+        plot_defaults = {"dpi": 150, "figsize": (figx * 3, figy * 3)}
+        plot_defaults.update(**kwargs)
+
+        fig, ax = plt.subplots(figx, figy, plot_defaults)
         ax = ax.flatten()
 
         for idx in range(ncols):
-            ax[idx].fill_between(bins[idx], mean[idx] - stdv[idx], mean[idx] + stdv[idx], alpha=0.25)
-            ax[idx].plot(bins[idx], mean[idx])
+            if idx in categorical_features:  # Skip categorical features
+                ax[idx].axis("off")
+                continue
+
+            # Fill confidence interval region
+            ax[idx].fill_between(bins[idx], lower_ci[idx], upper_ci[idx], color="gray", alpha=0.3, label=f"{int(ci_level * 100)}% CI")
+        
+            # Fill standard deviation region
+            ax[idx].fill_between(bins[idx], mean[idx] - stdv[idx], mean[idx] + stdv[idx], alpha=0.25, color="blue", label="± 1 Std. Dev.")
+        
+            # Plot mean response
+            ax[idx].plot(bins[idx], mean[idx], color="black", label="Mean Response")
+            
             ax[idx].set_title(labels[idx])
+            ax[idx].set_xlabel("Feature Value")
+            ax[idx].set_ylabel("Response")
+            ax[idx].legend()
 
         # turn off empty plots
-        for axi in ax:
-            if not axi.lines:
-                axi.set_visible(False)
+        for axi in ax[ncols:]:
+            axi.axis("off")
 
         fig.tight_layout()
-
+        
         return fig, ax
 
 
