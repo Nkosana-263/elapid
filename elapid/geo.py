@@ -496,14 +496,14 @@ def annotate_geoseries(
 
 def apply_model_to_array(
     model: BaseEstimator,
-    array: unumpy.ndarray,
+    array: unumpy.uarray,
     nodata: float,
     nodata_idx: int,
     count: int = 1,
     dtype: str = "float32",
     predict_proba: bool = False,
     **kwargs,
-) -> unumpy.ndarray:
+) -> unumpy.uarray:
     """Applies a model to an array of covariates.
 
     Covariate array should be of shape (nbands, nrows, ncols).
