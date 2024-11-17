@@ -2,6 +2,7 @@
 
 from typing import List, Tuple, Union
 from uncertainties import ufloat
+from uncertainties.unumpy import nominal_values, std_devs
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -90,8 +91,44 @@ class SDMMixin:
         Returns:
             importances: an array of shape (n_features, n_repeats).
         """
-        pi = permutation_importance(self, x, y, sample_weight=sample_weight, n_jobs=n_jobs, n_repeats=n_repeats)
 
+        predictions = self.predict(x)
+        if isinstance(predictions[0], ufloat): # Check if predictions include uncertainties
+             # Handle nominal values
+            pi_nominal = permutation_importance(
+                self,
+                nominal_values(x),  # Extract nominal values from uncertain features
+                y,
+                sample_weight=sample_weight,
+                n_jobs=n_jobs,
+                n_repeats=n_repeats,
+                )
+
+            # Handle uncertainties
+            pi_uncertainty = permutation_importance(
+                self,
+                std_devs(x),  # Extract standard deviations from uncertain features
+                y,
+                sample_weight=sample_weight,
+                n_jobs=n_jobs,
+                n_repeats=n_repeats,
+            )
+            
+            return {
+                "nominal_importance": pi_nominal.importances,
+                "uncertainty_importance": pi_uncertainty.importances,
+            }
+
+        # Default behavior for non-uncertain inputs
+        pi = permutation_importance(
+            self,
+            x,
+            y,
+            sample_weight=sample_weight,
+            n_jobs=n_jobs,
+            n_repeats=n_repeats,
+        )
+        
         return pi.importances
 
     def permutation_importance_plot(
