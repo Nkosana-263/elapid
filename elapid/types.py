@@ -4,12 +4,13 @@ from typing import Any, Union
 
 import geopandas as gpd
 import numpy as np
+from uncertainties import unumpy
 import pandas as pd
 import pyproj
 
 # typing
 Number = Union[int, float]
-ArrayLike = Union[np.ndarray, pd.DataFrame]
+ArrayLike = Union[unumpy.ndarray, pd.DataFrame]
 CRSType = Union[pyproj.CRS, str]
 Vector = Union[gpd.GeoSeries, gpd.GeoDataFrame]
 
