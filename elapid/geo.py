@@ -528,7 +528,7 @@ def apply_model_to_array(
 
     # reshape to the original window size
     rows, cols = valid.shape
-    ypred_window = unumpy.zeros((count, rows, cols), dtype=dtype) + nodata
+    ypred_window = np.zeros((count, rows, cols), dtype=dtype) + nodata
     ypred_window[:, valid] = ypred.transpose()
 
     return ypred_window
@@ -845,7 +845,7 @@ def zonal_stats(
 
 def nearest_point_distance(
     points1: Vector, points2: Vector = None, n_neighbors: int = 1, cpu_count: int = -1
-) -> unumpy.ndarray:
+) -> unumpy.uarray:
     """Compute the average euclidean distance to the nearest point in a series.
 
     Args:
@@ -865,7 +865,7 @@ def nearest_point_distance(
     if points1.crs.is_geographic:
         warnings.warn("Computing distances using geographic coordinates is bad")
 
-    pta1 = unumpy.array(list(zip(points1.geometry.x, points1.geometry.y)))
+    pta1 = unumpy.uarray(list(zip(points1.geometry.x, points1.geometry.y)))
     k_offset = 1
 
     if points2 is None:
@@ -873,7 +873,7 @@ def nearest_point_distance(
         k_offset += 1
 
     else:
-        pta2 = unumpy.array(list(zip(points2.geometry.x, points2.geometry.y)))
+        pta2 = unumpy.uarray(list(zip(points2.geometry.x, points2.geometry.y)))
         if not crs_match(points1.crs, points2.crs):
             warnings.warn("CRS mismatch between points")
 
@@ -881,7 +881,7 @@ def nearest_point_distance(
         n_neighbors = len(pta2) - k_offset
 
     tree = KDTree(pta1)
-    k = unumpy.arange(n_neighbors) + k_offset
+    k = np.arange(n_neighbors) + k_offset
     distance, idx = tree.query(pta2, k=k, workers=cpu_count)
 
     return distance.mean(axis=1)
@@ -915,6 +915,6 @@ def distance_weights(points: Vector, n_neighbors: int = -1, center: str = "media
             weights /= weights.mean()
 
         elif center.lower() == "median":
-            weights /= unumpy.median(weights)
+            weights /= np.median(weights)
 
     return weights
