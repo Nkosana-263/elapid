@@ -4,6 +4,7 @@ import os
 import warnings
 from typing import Union
 
+from uncertainties import unumpy
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -33,7 +34,7 @@ tqdm = get_tqdm()
 
 
 def xy_to_geoseries(
-    x: Union[float, list, np.ndarray], y: Union[float, list, np.ndarray], crs: CRSType = "epsg:4326"
+    x: Union[float, list, unumpy.ndarray], y: Union[float, list, unumpy.ndarray], crs: CRSType = "epsg:4326"
 ) -> gpd.GeoSeries:
     """Converts x/y data into a geopandas geoseries.
 
@@ -127,27 +128,27 @@ def sample_raster(raster_path: str, count: int, nodata: float = None, ignore_mas
         if src.nodata is None or ignore_mask:
             if nodata is None:
                 xmin, ymin, xmax, ymax = src.bounds
-                xy = np.random.uniform((xmin, ymin), (xmax, ymax), (count, 2))
+                xy = unumpy.random.uniform((xmin, ymin), (xmax, ymax), (count, 2))
             else:
                 data = src.read(1)
                 mask = data != nodata
-                rows, cols = np.where(mask)
-                samples = np.random.randint(0, len(rows), count)
-                xy = np.zeros((count, 2))
+                rows, cols = unumpy.where(mask)
+                samples = unumpy.random.randint(0, len(rows), count)
+                xy = unumpy.zeros((count, 2))
                 for i, sample in enumerate(samples):
                     xy[i] = src.xy(rows[sample], cols[sample])
 
         else:
             if nodata is None:
                 masked = src.read_masks(1)
-                rows, cols = np.where(masked == 255)
+                rows, cols = unumpy.where(masked == 255)
             else:
                 data = src.read(1, masked=True)
                 data.mask += data.data == nodata
-                rows, cols = np.where(~data.mask)
+                rows, cols = unumpy.where(~data.mask)
 
-            samples = np.random.randint(0, len(rows), count)
-            xy = np.zeros((count, 2))
+            samples = unumpy.random.randint(0, len(rows), count)
+            xy = unumpy.zeros((count, 2))
             for i, sample in enumerate(samples):
                 xy[i] = src.xy(rows[sample], cols[sample])
 
@@ -170,19 +171,19 @@ def sample_bias_file(raster_path: str, count: int, ignore_mask: bool = False) ->
     with rio.open(raster_path) as src:
         if src.nodata is None or ignore_mask:
             data = src.read(1)
-            rows, cols = np.where(data)
+            rows, cols = unumpy.where(data)
             values = data.flatten()
             probabilities = normalize_sample_probabilities(values)
-            samples = np.random.choice(len(rows), size=count, p=probabilities)
+            samples = unumpy.random.choice(len(rows), size=count, p=probabilities)
 
         else:
             data = src.read(1, masked=True)
-            rows, cols = np.where(~data.mask)
+            rows, cols = unumpy.where(~data.mask)
             values = data[rows, cols]
             probabilities = normalize_sample_probabilities(values)
-            samples = np.random.choice(len(rows), size=count, p=probabilities)
+            samples = unumpy.random.choice(len(rows), size=count, p=probabilities)
 
-        xy = np.zeros((count, 2))
+        xy = unumpy.zeros((count, 2))
         for i, sample in enumerate(samples):
             xy[i] = src.xy(rows[sample], cols[sample])
 
@@ -225,14 +226,14 @@ def sample_geoseries(geoseries: gpd.GeoSeries, count: int, overestimate: float =
     xmin, ymin, xmax, ymax = polygon.bounds
     ratio = polygon.area / polygon.envelope.area
 
-    samples = np.random.uniform((xmin, ymin), (xmax, ymax), (int(count / ratio * overestimate), 2))
+    samples = unumpy.random.uniform((xmin, ymin), (xmax, ymax), (int(count / ratio * overestimate), 2))
     multipoint = MultiPoint(samples)
     multipoint = multipoint.intersection(polygon)
-    sample_array = np.zeros((len(multipoint.geoms), 2))
+    sample_array = unumpy.zeros((len(multipoint.geoms), 2))
     for idx, point in enumerate(multipoint.geoms):
         sample_array[idx] = (point.x, point.y)
 
-    xy = sample_array[np.random.choice(len(sample_array), count)]
+    xy = sample_array[unumpy.random.choice(len(sample_array), count)]
     points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=geoseries.crs)
 
     return points
@@ -411,7 +412,7 @@ def annotate_geoseries(
     drop_na: bool = True,
     dtype: str = None,
     quiet: bool = False,
-) -> (gpd.GeoDataFrame, np.ndarray):
+) -> (gpd.GeoDataFrame, unumpy.ndarray): # type: ignore
     """Reads and stores pixel values from rasters using point locations.
 
     Args:
@@ -465,7 +466,7 @@ def annotate_geoseries(
                     **tqdm_opts,
                 )
             )
-            samples = np.array(samples_iter, dtype=dtype)
+            samples = unumpy.array(samples_iter, dtype=dtype)
             raster_values.append(samples)
 
             # identify nodata points to remove later
@@ -474,11 +475,11 @@ def annotate_geoseries(
                 valid_idxs.append(samples[:, 0] != src.nodata)
 
     # merge the arrays from each raster
-    values = np.concatenate(raster_values, axis=1, dtype=dtype)
+    values = unumpy.concatenate(raster_values, axis=1, dtype=dtype)
 
     if nodata_flag:
-        valid = np.all(valid_idxs, axis=0).reshape(-1, 1)
-        values = np.concatenate([values, valid], axis=1, dtype=dtype)
+        valid = unumpy.all(valid_idxs, axis=0).reshape(-1, 1)
+        values = unumpy.concatenate([values, valid], axis=1, dtype=dtype)
         labels.append("valid")
         # values = values[valid, :]
         # points = points.iloc[valid]
@@ -495,14 +496,14 @@ def annotate_geoseries(
 
 def apply_model_to_array(
     model: BaseEstimator,
-    array: np.ndarray,
+    array: unumpy.ndarray,
     nodata: float,
     nodata_idx: int,
     count: int = 1,
     dtype: str = "float32",
     predict_proba: bool = False,
     **kwargs,
-) -> np.ndarray:
+) -> unumpy.ndarray:
     """Applies a model to an array of covariates.
 
     Covariate array should be of shape (nbands, nrows, ncols).
@@ -527,7 +528,7 @@ def apply_model_to_array(
 
     # reshape to the original window size
     rows, cols = valid.shape
-    ypred_window = np.zeros((count, rows, cols), dtype=dtype) + nodata
+    ypred_window = unumpy.zeros((count, rows, cols), dtype=dtype) + nodata
     ypred_window[:, valid] = ypred.transpose()
 
     return ypred_window
@@ -844,7 +845,7 @@ def zonal_stats(
 
 def nearest_point_distance(
     points1: Vector, points2: Vector = None, n_neighbors: int = 1, cpu_count: int = -1
-) -> np.ndarray:
+) -> unumpy.ndarray:
     """Compute the average euclidean distance to the nearest point in a series.
 
     Args:
@@ -864,7 +865,7 @@ def nearest_point_distance(
     if points1.crs.is_geographic:
         warnings.warn("Computing distances using geographic coordinates is bad")
 
-    pta1 = np.array(list(zip(points1.geometry.x, points1.geometry.y)))
+    pta1 = unumpy.array(list(zip(points1.geometry.x, points1.geometry.y)))
     k_offset = 1
 
     if points2 is None:
@@ -872,7 +873,7 @@ def nearest_point_distance(
         k_offset += 1
 
     else:
-        pta2 = np.array(list(zip(points2.geometry.x, points2.geometry.y)))
+        pta2 = unumpy.array(list(zip(points2.geometry.x, points2.geometry.y)))
         if not crs_match(points1.crs, points2.crs):
             warnings.warn("CRS mismatch between points")
 
@@ -880,13 +881,13 @@ def nearest_point_distance(
         n_neighbors = len(pta2) - k_offset
 
     tree = KDTree(pta1)
-    k = np.arange(n_neighbors) + k_offset
+    k = unumpy.arange(n_neighbors) + k_offset
     distance, idx = tree.query(pta2, k=k, workers=cpu_count)
 
     return distance.mean(axis=1)
 
 
-def distance_weights(points: Vector, n_neighbors: int = -1, center: str = "median", cpu_count: int = -1) -> np.ndarray:
+def distance_weights(points: Vector, n_neighbors: int = -1, center: str = "median", cpu_count: int = -1) -> unumpy.ndarray:
     """Compute sample weights based on the distance between points.
 
     Assigns higher scores to isolated points, lower scores to clustered points.
@@ -914,6 +915,6 @@ def distance_weights(points: Vector, n_neighbors: int = -1, center: str = "media
             weights /= weights.mean()
 
         elif center.lower() == "median":
-            weights /= np.median(weights)
+            weights /= unumpy.median(weights)
 
     return weights
