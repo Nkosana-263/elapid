@@ -207,8 +207,9 @@ class SDMMixin:
         x: ArrayLike,
         percentiles: tuple = (0.025, 0.975),
         n_bins: int = 100,
+        ci_level: float = 0.95,
         categorical_features: tuple = [None],
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Compute partial dependence scores for each feature.
 
         Args:
@@ -225,10 +226,16 @@ class SDMMixin:
         mean = np.zeros((ncols, n_bins))
         stdv = np.zeros_like(mean)
         bins = np.zeros_like(mean)
+        lower_ci = np.zeros_like(mean)
+        upper_ci = np.zeros_like(mean)
+
+         # Compute z-score for the desired confidence interval
+        z_score = scistats.norm.ppf(1 - (1 - ci_level) / 2)
 
         for idx in range(ncols):
             if idx in categorical_features:
                 continue
+
             pd = partial_dependence(
                 self,
                 x,
@@ -237,11 +244,17 @@ class SDMMixin:
                 grid_resolution=n_bins,
                 kind="individual",
             )
-            mean[idx] = pd["individual"][0].mean(axis=0)
-            stdv[idx] = pd["individual"][0].std(axis=0)
-            bins[idx] = pd["grid_values"][0]
 
-        return bins, mean, stdv
+            individual_responses = pd["individual"][0]
+            grid_values = pd["grid_values"][0]
+
+            mean[idx] = individual_responses.mean(axis=0)
+            stdv[idx] = individual_responses.std(axis=0)
+            lower_ci[idx] = mean[idx] - z_score * stdv[idx]
+            upper_ci[idx] = mean[idx] + z_score * stdv[idx]
+            bins[idx] = grid_values
+
+        return bins, mean, stdv, upper_ci, lower_ci
 
     def partial_dependence_plot(
         self,
