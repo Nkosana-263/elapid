@@ -26,7 +26,7 @@ class RasterStat:
         self.dtype = dtype
         self.kwargs = kwargs
 
-    def format(self, x: unumpy.ndarray) -> unumpy.ndarray:
+    def format(self, x: unumpy.uarray) -> unumpy.uarray:
         """Format the array data into an array of shape [nbands, n_valid_pixels]
 
         Args:
@@ -40,7 +40,7 @@ class RasterStat:
             x = x.reshape((bands, rows * cols))
         return x
 
-    def reduce(self, x: unumpy.ndarray) -> unumpy.ndarray:
+    def reduce(self, x: unumpy.uarray) -> unumpy.uarray:
         """Reduce an array using the objects `method` function
 
         Args:
@@ -53,15 +53,15 @@ class RasterStat:
 
 
 def raster_mean(x):
-    return unumpy.nanmean(x, axis=1)
+    return np.nanmean(x, axis=1)
 
 
 def raster_min(x):
-    return unumpy.nanmin(x, axis=1)
+    return np.nanmin(x, axis=1)
 
 
 def raster_max(x):
-    return unumpy.nanmax(x, axis=1)
+    return np.nanmax(x, axis=1)
 
 
 def raster_count(x):
@@ -69,11 +69,11 @@ def raster_count(x):
 
 
 def raster_sum(x):
-    return unumpy.nansum(x, axis=1)
+    return np.nansum(x, axis=1)
 
 
 def raster_stdv(x):
-    return unumpy.nanstd(x, axis=1)
+    return np.nanstd(x, axis=1)
 
 
 def raster_skew(x):
@@ -96,10 +96,10 @@ def raster_mode(x):
 
 
 def raster_percentile(x, pctile):
-    if isinstance(x, unumpy.ma.masked_array):
+    if isinstance(x, np.ma.masked_array):
         valid = ~x.mask[0, ::]
-        x = unumpy.array(x[:, valid])
-    return unumpy.nanpercentile(x, pctile, axis=1)
+        x = unumpy.uarray(x[:, valid])
+    return np.nanpercentile(x, pctile, axis=1)
 
 
 def get_raster_stats_methods(
@@ -152,7 +152,7 @@ def get_raster_stats_methods(
     return methods
 
 
-def normalize_sample_probabilities(values: ArrayLike) -> unumpy.ndarray:
+def normalize_sample_probabilities(values: ArrayLike) -> unumpy.uarray:
     """Compute scaled probability scores for an array of samples.
 
     These normalized probabilities sum to 1.0 and are designed to be used
@@ -167,4 +167,4 @@ def normalize_sample_probabilities(values: ArrayLike) -> unumpy.ndarray:
     Returns:
         sample probabiility scores
     """
-    return values / unumpy.linalg.norm(values, ord=1)
+    return values / unumpy.ulinalg.norm(values, ord=1)

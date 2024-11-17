@@ -16,7 +16,7 @@ from elapid.utils import make_band_labels, repeat_array
 class FeaturesMixin:
     """Methods for formatting x data and labels"""
 
-    def _format_covariate_data(self, x: ArrayLike) -> Tuple[unumpy.array, unumpy.array]:
+    def _format_covariate_data(self, x: ArrayLike) -> Tuple[unumpy.uarray, unumpy.uarray]:
         """Reads input x data and formats it to consistent array dtypes.
 
         Args:
@@ -26,7 +26,7 @@ class FeaturesMixin:
             (continuous, categorical) tuple of ndarrays with continuous and
                 categorical covariate data.
         """
-        if isinstance(x, unumpy.ndarray):
+        if isinstance(x, unumpy.uarray):
             if self.categorical_ is None:
                 con = x
                 cat = None
@@ -55,7 +55,7 @@ class FeaturesMixin:
             categorical: indices indicating which x columns are categorical
             labels: covariate column labels. ignored if x is a pandas DataFrame
         """
-        if isinstance(x, unumpy.ndarray):
+        if isinstance(x, unumpy.uarray):
             nrows, ncols = x.shape
             if categorical is None:
                 continuous = list(range(ncols))
@@ -118,11 +118,11 @@ class QuadraticTransformer(BaseEstimator, TransformerMixin):
             self. Returns the transformer with fitted parameters.
         """
         self.estimator = MinMaxScaler(clip=self.clamp, feature_range=self.feature_range)
-        self.estimator.fit(unumpy.array(x) ** 2)
+        self.estimator.fit(unumpy.uarray(x) ** 2)
 
         return self
 
-    def transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def transform(self, x: ArrayLike) -> unumpy.uarray:
         """Scale covariates according to the feature range.
 
         Args:
@@ -132,9 +132,9 @@ class QuadraticTransformer(BaseEstimator, TransformerMixin):
         Returns:
             ndarray with transformed data.
         """
-        return self.estimator.transform(unumpy.array(x) ** 2)
+        return self.estimator.transform(unumpy.uarray(x) ** 2)
 
-    def fit_transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def fit_transform(self, x: ArrayLike) -> unumpy.uarray:
         """Fits scaler to x and returns transformed features.
 
         Args:
@@ -145,9 +145,9 @@ class QuadraticTransformer(BaseEstimator, TransformerMixin):
             ndarray with transformed data.
         """
         self.fit(x)
-        return self.estimator.transform(unumpy.array(x) ** 2)
+        return self.estimator.transform(unumpy.uarray(x) ** 2)
 
-    def inverse_transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def inverse_transform(self, x: ArrayLike) -> unumpy.uarray:
         """Revert from transformed features to original covariate values.
 
         Args:
@@ -157,7 +157,7 @@ class QuadraticTransformer(BaseEstimator, TransformerMixin):
         Returns:
             ndarray with unscaled covariate values.
         """
-        return self.estimator.inverse_transform(unumpy.array(x)) ** 0.5
+        return self.estimator.inverse_transform(unumpy.uarray(x)) ** 0.5
 
 
 class ProductTransformer(BaseEstimator, TransformerMixin):
@@ -184,11 +184,11 @@ class ProductTransformer(BaseEstimator, TransformerMixin):
             self. Returns the transformer with fitted parameters.
         """
         self.estimator = MinMaxScaler(clip=self.clamp, feature_range=self.feature_range)
-        self.estimator.fit(column_product(unumpy.array(x)))
+        self.estimator.fit(column_product(unumpy.uarray(x)))
 
         return self
 
-    def transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def transform(self, x: ArrayLike) -> unumpy.uarray:
         """Scale covariates according to the feature range.
 
         Args:
@@ -198,9 +198,9 @@ class ProductTransformer(BaseEstimator, TransformerMixin):
         Returns:
             ndarray with transformed data.
         """
-        return self.estimator.transform(column_product(unumpy.array(x)))
+        return self.estimator.transform(column_product(unumpy.uarray(x)))
 
-    def fit_transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def fit_transform(self, x: ArrayLike) -> unumpy.uarray:
         """Fits scaler to x and returns transformed features.
 
         Args:
@@ -241,7 +241,7 @@ class ThresholdTransformer(BaseEstimator, TransformerMixin):
 
         return self
 
-    def transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def transform(self, x: ArrayLike) -> unumpy.uarray:
         """Scale covariates according to the feature range.
 
         Args:
@@ -251,13 +251,13 @@ class ThresholdTransformer(BaseEstimator, TransformerMixin):
         Returns:
             ndarray with transformed data.
         """
-        x = unumpy.array(x)
+        x = unumpy.uarray(x)
         xarr = repeat_array(x, len(self.threshold_indices_), axis=-1)
         tarr = repeat_array(self.threshold_indices_.transpose(), len(x), axis=0)
         thresh = (xarr > tarr).reshape(x.shape[0], -1)
-        return thresh.astype(unumpy.uint8)
+        return thresh.astype(np.uint8)
 
-    def fit_transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def fit_transform(self, x: ArrayLike) -> unumpy.uarray:
         """Fits scaler to x and returns transformed features.
 
         Args:
@@ -291,14 +291,14 @@ class HingeTransformer(BaseEstimator, TransformerMixin):
         Returns:
             self. Updatesd transformer with fitted parameters.
         """
-        x = unumpy.array(x)
+        x = unumpy.uarray(x)
         self.mins_ = x.min(axis=0)
         self.maxs_ = x.max(axis=0)
         self.hinge_indices_ = unumpy.linspace(self.mins_, self.maxs_, self.n_hinges)
 
         return self
 
-    def transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def transform(self, x: ArrayLike) -> unumpy.uarray:
         """Scale covariates according to the feature range.
 
         Args:
@@ -314,9 +314,9 @@ class HingeTransformer(BaseEstimator, TransformerMixin):
         rharr = repeat_array(self.hinge_indices_[1:].transpose(), len(x), axis=0)
         lh = left_hinge(xarr, lharr, self.maxs_)
         rh = right_hinge(xarr, self.mins_, rharr)
-        return unumpy.concatenate((lh, rh), axis=2).reshape(x.shape[0], -1)
+        return np.concatenate((lh, rh), axis=2).reshape(x.shape[0], -1)
 
-    def fit_transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def fit_transform(self, x: ArrayLike) -> unumpy.uarray:
         """Fits scaler to x and returns transformed features.
 
         Args:
@@ -348,20 +348,20 @@ class CategoricalTransformer(BaseEstimator, TransformerMixin):
             self. Returns the transformer with fitted parameters.
         """
         self.estimators_ = []
-        x = unumpy.array(x)
+        x = unumpy.uarray(x)
         if x.ndim == 1:
-            estimator = OneHotEncoder(dtype=unumpy.uint8, sparse_output=False)
+            estimator = OneHotEncoder(dtype=np.uint8, sparse_output=False)
             self.estimators_.append(estimator.fit(x.reshape(-1, 1)))
         else:
             nrows, ncols = x.shape
             for col in range(ncols):
                 xsub = x[:, col].reshape(-1, 1)
-                estimator = OneHotEncoder(dtype=unumpy.uint8, sparse_output=False)
+                estimator = OneHotEncoder(dtype=np.uint8, sparse_output=False)
                 self.estimators_.append(estimator.fit(xsub))
 
         return self
 
-    def transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def transform(self, x: ArrayLike) -> unumpy.uarray:
         """Scale covariates according to the feature range.
 
         Args:
@@ -371,7 +371,7 @@ class CategoricalTransformer(BaseEstimator, TransformerMixin):
         Returns:
             ndarray with transformed data.
         """
-        x = unumpy.array(x)
+        x = unumpy.uarray(x)
         if x.ndim == 1:
             estimator = self.estimators_[0]
             return estimator.transform(x.reshape(-1, 1))
@@ -382,9 +382,9 @@ class CategoricalTransformer(BaseEstimator, TransformerMixin):
                 xsub = x[:, col].reshape(-1, 1)
                 estimator = self.estimators_[col]
                 class_data.append(estimator.transform(xsub))
-            return unumpy.concatenate(class_data, axis=1)
+            return np.concatenate(class_data, axis=1)
 
-    def fit_transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def fit_transform(self, x: ArrayLike) -> unumpy.uarray:
         """Fits scaler to x and returns transformed features.
 
         Args:
@@ -506,7 +506,7 @@ class MaxentFeatureTransformer(BaseEstimator, TransformerMixin, FeaturesMixin):
 
         return self
 
-    def transform(self, x: ArrayLike) -> unumpy.ndarray:
+    def transform(self, x: ArrayLike) -> unumpy.uarray:
         """Scale covariates according to the feature range.
 
         Args:
@@ -537,9 +537,9 @@ class MaxentFeatureTransformer(BaseEstimator, TransformerMixin, FeaturesMixin):
         if cat is not None:
             features.append(self.estimators_["categorical"].transform(cat))
 
-        return unumpy.concatenate(features, axis=1)
+        return np.concatenate(features, axis=1)
 
-    def fit_transform(self, x: ArrayLike, categorical: list = None, labels: list = None) -> unumpy.ndarray:
+    def fit_transform(self, x: ArrayLike, categorical: list = None, labels: list = None) -> unumpy.uarray:
         """Fits scaler to x and returns transformed features.
 
         Args:
@@ -556,7 +556,7 @@ class MaxentFeatureTransformer(BaseEstimator, TransformerMixin, FeaturesMixin):
 # helper functions
 
 
-def column_product(array: unumpy.ndarray) -> unumpy.ndarray:
+def column_product(array: unumpy.uarray) -> unumpy.uarray:
     """Computes the column-wise product of a 2D array.
 
     Args:
@@ -576,7 +576,7 @@ def column_product(array: unumpy.ndarray) -> unumpy.ndarray:
         return unumpy.concatenate(products, axis=1)
 
 
-def left_hinge(x: ArrayLike, mn: float, mx: float) -> unumpy.ndarray:
+def left_hinge(x: ArrayLike, mn: float, mx: float) -> unumpy.uarray:
     """Computes hinge transformation values.
 
     Args:
@@ -587,10 +587,10 @@ def left_hinge(x: ArrayLike, mn: float, mx: float) -> unumpy.ndarray:
     Returns:
         Array of hinge features
     """
-    return unumpy.minimum(1, unumpy.maximum(0, (x - mn) / (repeat_array(mx, mn.shape[-1], axis=1) - mn)))
+    return np.minimum(1, np.maximum(0, (x - mn) / (repeat_array(mx, mn.shape[-1], axis=1) - mn)))
 
 
-def right_hinge(x: ArrayLike, mn: float, mx: float) -> unumpy.ndarray:
+def right_hinge(x: ArrayLike, mn: float, mx: float) -> unumpy.uarray:
     """Computes hinge transformation values.
 
     Args:
@@ -602,10 +602,10 @@ def right_hinge(x: ArrayLike, mn: float, mx: float) -> unumpy.ndarray:
         Array of hinge features
     """
     mn_broadcast = repeat_array(mn, mx.shape[-1], axis=1)
-    return unumpy.minimum(1, unumpy.maximum(0, (x - mn_broadcast) / (mx - mn_broadcast)))
+    return np.minimum(1, np.maximum(0, (x - mn_broadcast) / (mx - mn_broadcast)))
 
 
-def compute_weights(y: ArrayLike, pbr: int = 100) -> unumpy.ndarray:
+def compute_weights(y: ArrayLike, pbr: int = 100) -> unumpy.uarray:
     """Compute Maxent-format per-sample model weights.
 
     Args:
@@ -615,20 +615,20 @@ def compute_weights(y: ArrayLike, pbr: int = 100) -> unumpy.ndarray:
     Returns:
         weights: array with glmnet-formatted sample weights
     """
-    weights = unumpy.array(y + (1 - y) * pbr)
+    weights = unumpy.uarray(y + (1 - y) * pbr)
     return weights
 
 
 def compute_regularization(
     y: ArrayLike,
-    z: unumpy.ndarray,
+    z: unumpy.uarray,
     feature_labels: List[str],
     beta_multiplier: float = MaxentConfig.beta_multiplier,
     beta_lqp: float = MaxentConfig.beta_lqp,
     beta_threshold: float = MaxentConfig.beta_threshold,
     beta_hinge: float = MaxentConfig.beta_hinge,
     beta_categorical: float = MaxentConfig.beta_hinge,
-) -> unumpy.ndarray:
+) -> unumpy.uarray:
     """Computes variable regularization values for all feature data.
 
     Args:
@@ -648,15 +648,15 @@ def compute_regularization(
     # compute regularization based on presence-only locations
     z1 = z[y == 1]
     nrows, ncols = z1.shape
-    labels = unumpy.array(feature_labels)
+    labels = unumpy.uarray(feature_labels)
     nlabels = len(feature_labels)
 
     assert nlabels == ncols, f"number of feature_labels ({nlabels}) must match number of features ({ncols})"
 
     # create arrays to store the regularization params
-    base_regularization = unumpy.zeros(ncols)
-    hinge_regularization = unumpy.zeros(ncols)
-    threshold_regularization = unumpy.zeros(ncols)
+    base_regularization = np.zeros(ncols)
+    hinge_regularization = np.zeros(ncols)
+    threshold_regularization = np.zeros(ncols)
 
     # use a different reg table based on the features set
     if "product" in labels:
@@ -670,37 +670,37 @@ def compute_regularization(
         linear_idxs = labels == "linear"
         fr_max, fr_min = table_lqp
         multiplier = beta_lqp
-        ap = unumpy.interp(nrows, fr_max, fr_min)
-        reg = multiplier * ap / unumpy.sqrt(nrows)
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
         base_regularization[linear_idxs] = reg
 
     if "quadratic" in labels:
         quadratic_idxs = labels == "quadratic"
         fr_max, fr_min = table_lqp
         multiplier = beta_lqp
-        ap = unumpy.interp(nrows, fr_max, fr_min)
-        reg = multiplier * ap / unumpy.sqrt(nrows)
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
         base_regularization[quadratic_idxs] = reg
 
     if "product" in labels:
         product_idxs = labels == "product"
         fr_max, fr_min = table_lqp
         multiplier = beta_lqp
-        ap = unumpy.interp(nrows, fr_max, fr_min)
-        reg = multiplier * ap / unumpy.sqrt(nrows)
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
         base_regularization[product_idxs] = reg
 
     if "threshold" in labels:
         threshold_idxs = labels == "threshold"
         fr_max, fr_min = RegularizationConfig.threshold
         multiplier = beta_threshold
-        ap = unumpy.interp(nrows, fr_max, fr_min)
-        reg = multiplier * ap / unumpy.sqrt(nrows)
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
         base_regularization[threshold_idxs] = reg
 
         # increase regularization for uniform threshlold values
-        all_zeros = unumpy.all(z1 == 0, axis=0)
-        all_ones = unumpy.all(z1 == 1, axis=0)
+        all_zeros = np.all(z1 == 0, axis=0)
+        all_ones = np.all(z1 == 1, axis=0)
         threshold_regularization[all_zeros] = 1
         threshold_regularization[all_ones] = 1
 
@@ -708,28 +708,28 @@ def compute_regularization(
         hinge_idxs = labels == "hinge"
         fr_max, fr_min = RegularizationConfig.hinge
         multiplier = beta_hinge
-        ap = unumpy.interp(nrows, fr_max, fr_min)
-        reg = multiplier * ap / unumpy.sqrt(nrows)
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
         base_regularization[hinge_idxs] = reg
 
         # increase regularization for extreme hinge values
-        hinge_std = unumpy.std(z1[:, hinge_idxs], ddof=1, axis=0)
-        hinge_sqrt = unumpy.zeros(len(hinge_std)) + (1 / unumpy.sqrt(nrows))
-        std = unumpy.max((hinge_std, hinge_sqrt), axis=0)
-        hinge_regularization[hinge_idxs] = (0.5 * std) / unumpy.sqrt(nrows)
+        hinge_std = np.std(z1[:, hinge_idxs], ddof=1, axis=0)
+        hinge_sqrt = np.zeros(len(hinge_std)) + (1 / np.sqrt(nrows))
+        std = np.max((hinge_std, hinge_sqrt), axis=0)
+        hinge_regularization[hinge_idxs] = (0.5 * std) / np.sqrt(nrows)
 
     if "categorical" in labels:
         categorical_idxs = labels == "categorical"
         fr_max, fr_min = RegularizationConfig.categorical
         multiplier = beta_categorical
-        ap = unumpy.interp(nrows, fr_max, fr_min)
-        reg = multiplier * ap / unumpy.sqrt(nrows)
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
         base_regularization[categorical_idxs] = reg
 
     # compute the maximum regularization based on a few different approaches
-    default_regularization = 0.001 * (unumpy.max(z, axis=0) - unumpy.min(z, axis=0))
-    variance_regularization = unumpy.std(z1, ddof=1, axis=0) * base_regularization
-    max_regularization = unumpy.max(
+    default_regularization = 0.001 * (np.max(z, axis=0) - np.min(z, axis=0))
+    variance_regularization = np.std(z1, ddof=1, axis=0) * base_regularization
+    max_regularization = np.max(
         (default_regularization, variance_regularization, hinge_regularization, threshold_regularization), axis=0
     )
 
@@ -741,7 +741,7 @@ def compute_regularization(
 
 def compute_lambdas(
     y: ArrayLike, weights: ArrayLike, reg: ArrayLike, n_lambdas: int = MaxentConfig.n_lambdas
-) -> unumpy.ndarray:
+) -> unumpy.uarray:
     """Computes lambda parameter values for elastic lasso fits.
 
     Args:
@@ -753,10 +753,10 @@ def compute_lambdas(
     Returns:
         lambdas: Array of lambda scores of length n_lambda
     """
-    n_presence = unumpy.sum(y)
-    mean_regularization = unumpy.mean(reg)
-    total_weight = unumpy.sum(weights)
-    seed_range = unumpy.linspace(4, 0, n_lambdas)
+    n_presence = np.sum(y)
+    mean_regularization = np.mean(reg)
+    total_weight = np.sum(weights)
+    seed_range = np.linspace(4, 0, n_lambdas)
     lambdas = 10 ** (seed_range) * mean_regularization * (n_presence / total_weight)
 
     return lambdas

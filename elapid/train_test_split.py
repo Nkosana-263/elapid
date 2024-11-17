@@ -36,8 +36,8 @@ def checkerboard_split(
     bounds = points.total_bounds if bounds is None else bounds
     xmin, ymin, xmax, ymax = bounds
 
-    x0s = unumpy.arange(xmin - buffer, xmax + buffer + grid_size, grid_size)
-    y0s = unumpy.arange(ymin - buffer, ymax + buffer + grid_size, grid_size)
+    x0s = np.arange(xmin - buffer, xmax + buffer + grid_size, grid_size)
+    y0s = np.arange(ymin - buffer, ymax + buffer + grid_size, grid_size)
 
     train_cells = []
     test_cells = []
@@ -87,12 +87,12 @@ class GeographicKFold(BaseCrossValidator):
         xy = unumpy.array(list(zip(points.geometry.x, points.geometry.y)))
         kmeans.fit(xy)
         clusters = kmeans.predict(xy)
-        indices = unumpy.arange(len(xy))
+        indices = np.arange(len(xy))
         for cluster in range(self.n_splits):
             test = clusters == cluster
             yield indices[test]
 
-    def split(self, points: Vector) -> Tuple[unumpy.ndarray, unumpy.ndarray]: # type: ignore
+    def split(self, points: Vector) -> Tuple[unumpy.uarray, unumpy.uarray]: # type: ignore
         """Split point data into geographically-clustered train/test folds and
             return their array indices.
 
@@ -141,7 +141,7 @@ class BufferedLeaveOneOut(BaseCrossValidator):
         if count:
             return len(unique)
 
-        all_idxs = unumpy.arange(len(points))
+        all_idxs = np.arange(len(points))
         test_idxs = []
         for group in unique:
             in_group = points[groups] == group
@@ -162,7 +162,7 @@ class BufferedLeaveOneOut(BaseCrossValidator):
             if count:
                 return in_class.sum()
             else:
-                return unumpy.where(in_class)[0]
+                return np.where(in_class)[0]
 
     def _iter_test_indices(self, points: Vector, class_label: str = None, groups: str = None, y: None = None):
         """Generate indices for test data samples."""
@@ -178,11 +178,11 @@ class BufferedLeaveOneOut(BaseCrossValidator):
     def _iter_test_masks(self, points: Vector, class_label: str = None, groups: str = None):
         """Generates boolean masks corresponding to test sets."""
         for test_index in self._iter_test_indices(points, class_label, groups):
-            test_mask = unumpy.zeros(_num_samples(points), dtype=bool)
+            test_mask = np.zeros(_num_samples(points), dtype=bool)
             test_mask[test_index] = True
             yield test_mask
 
-    def split(self, points: Vector, class_label: str = None, groups: str = None) -> Tuple[unumpy.ndarray, unumpy.ndarray]:
+    def split(self, points: Vector, class_label: str = None, groups: str = None) -> Tuple[unumpy.uarray, unumpy.uarray]:
         """Split point data into train/test folds and return their array indices.
 
         Default behaviour is to perform leave-one-out cross-validation, meaning
@@ -201,9 +201,9 @@ class BufferedLeaveOneOut(BaseCrossValidator):
             (train_idxs, test_idxs) the train/test splits for each fold.
         """
         n_samples = len(points)
-        indices = unumpy.arange(n_samples)
+        indices = np.arange(n_samples)
         for test_index in self._iter_test_masks(points, class_label, groups):
-            train_idx = indices[unumpy.logical_not(test_index)]
+            train_idx = indices[np.logical_not(test_index)]
             test_idx = indices[test_index]
             train_pts = points.iloc[train_idx]
             test_pts = points.iloc[test_idx]
