@@ -412,7 +412,7 @@ def annotate_geoseries(
     drop_na: bool = True,
     dtype: str = None,
     quiet: bool = False,
-) -> (gpd.GeoDataFrame, unumpy.ndarray): # type: ignore
+) -> (gpd.GeoDataFrame, unumpy.uarray): # type: ignore
     """Reads and stores pixel values from rasters using point locations.
 
     Args:
