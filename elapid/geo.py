@@ -4,7 +4,7 @@ import os
 import warnings
 from typing import Union
 
-from uncertainties import unumpy
+from uncertainties import unumpy, ufloat
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -412,6 +412,7 @@ def annotate_vector(
 def annotate_geoseries(
     points: gpd.GeoSeries,
     raster_paths: list,
+    std_raster_paths: list, # for calculations with uncertainties
     labels: list = None,
     drop_na: bool = True,
     dtype: str = None,
@@ -432,6 +433,7 @@ def annotate_geoseries(
     """
     # format the inputs
     raster_paths = to_iterable(raster_paths)
+    std_raster_paths = to_iterable(std_raster_paths)
     labels = format_band_labels(raster_paths, labels)
 
     # get the dataset dimensions
@@ -439,14 +441,15 @@ def annotate_geoseries(
 
     # create arrays and flags for updating
     raster_values = []
+    uncertainty_values = []
     valid_idxs = []
     nodata_flag = False
 
     # annotate each point with the pixel values for each raster
-    for raster_idx, raster_path in tqdm(
-        enumerate(raster_paths), desc="Raster", total=n_rasters, disable=quiet, **tqdm_opts
+    for raster_idx, (raster_path, std_raster_path) in tqdm(
+        enumerate(zip(raster_paths, std_raster_paths)), desc="Raster", total=n_rasters, disable=quiet, **tqdm_opts
     ):
-        with rio.open(raster_path, "r") as src:
+        with rio.open(raster_path, "r") as src, rio.open(std_raster_path, "r") as std_src:
             # reproject points to match raster and convert to a dataframe
             if not crs_match(points.crs, src.crs):
                 points = points.to_crs(src.crs)
@@ -463,15 +466,36 @@ def annotate_geoseries(
             samples_iter = list(
                 tqdm(
                     src.sample(xys, masked=False),
-                    desc="Sample",
+                    desc="Sample Mean",
                     total=n_points,
                     leave=False,
                     disable=quiet,
                     **tqdm_opts,
                 )
             )
+
+            std_samples_iter = list(
+                tqdm(
+                    std_src.sample(xys, masked=False),
+                    desc="Sample STD",
+                    total=n_points,
+                    leave=False,
+                    disable=quiet,
+                    **tqdm_opts,
+                )
+            )
+
             samples = unumpy.array(samples_iter, dtype=dtype)
+            std_samples = np.array(std_samples_iter)
+            uncertainty_samples = [
+                ufloat(mean, std) for mean, std in zip(samples[:, 0], std_samples[:, 0])
+            ]
+
+
+
             raster_values.append(samples)
+            uncertainty_values.append(uncertainty_samples)
+
 
             # identify nodata points to remove later
             if drop_na and src.nodata is not None:
@@ -482,8 +506,9 @@ def annotate_geoseries(
     values = unumpy.concatenate(raster_values, axis=1, dtype=dtype)
 
     if nodata_flag:
-        valid = unumpy.all(valid_idxs, axis=0).reshape(-1, 1)
-        values = unumpy.concatenate([values, valid], axis=1, dtype=dtype)
+        valid = np.all(valid_idxs, axis=0).reshape(-1, 1)
+        values = np.concatenate([values, valid], axis=1, dtype=dtype)
+        uncertainty_values = np.concatenate([uncertainty_values, valid], axis=1)
         labels.append("valid")
         # values = values[valid, :]
         # points = points.iloc[valid]
@@ -491,6 +516,7 @@ def annotate_geoseries(
 
     # convert to a geodataframe
     gdf = gpd.GeoDataFrame(values, geometry=points.geometry, columns=labels)
+    gdf['uncertainty'] = uncertainty_values
 
     return gdf
 
