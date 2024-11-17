@@ -3,6 +3,7 @@
 from typing import List, Tuple, Union
 from uncertainties import ufloat
 from uncertainties.unumpy import nominal_values, std_devs
+from uncertainties import unumpy
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -331,7 +332,7 @@ class SDMMixin:
             axi.axis("off")
 
         fig.tight_layout()
-        
+
         return fig, ax
 
 
@@ -444,6 +445,13 @@ class MaxentModel(BaseEstimator, SDMMixin):
                 a .fit_transform() method. Some examples include a PCA() object or a
                 RobustScaler().
         """
+        if isinstance(x[0], ufloat):
+            x_nominal = nominal_values(x)
+            x_stddev = std_devs(x)
+        else:
+            x_nominal = x
+            x_stddev = np.zeros_like(x)
+
         # clear state variables
         self.alpha_ = 0.0
         self.entropy_ = 0.0
@@ -455,9 +463,11 @@ class MaxentModel(BaseEstimator, SDMMixin):
         if preprocessor is not None:
             self.preprocessor = preprocessor
             try:
-                x = self.preprocessor.transform(x)
+                x_nominal = self.preprocessor.transform(x_nominal)
+                x_stddev = self.preprocessor.transform(x_stddev)
             except NotFittedError:
-                x = self.preprocessor.fit_transform(x)
+                x_nominal = self.preprocessor.fit_transform(x_nominal)
+                x_stddev = self.preprocessor.fit_transform(x_stddev)
 
         # fit the feature transformer
         self.feature_types = validate_feature_types(self.feature_types)
@@ -467,7 +477,10 @@ class MaxentModel(BaseEstimator, SDMMixin):
             n_hinge_features=self.n_hinge_features,
             n_threshold_features=self.n_threshold_features,
         )
-        features = self.transformer.fit_transform(x, categorical=categorical, labels=labels)
+
+        features_nominal = self.transformer.fit_transform(x_nominal, categorical=categorical, labels=labels)
+        features_stddev = self.transformer.transform(x_stddev)  # Apply same transformation for stddev
+
         feature_labels = self.transformer.feature_names_
 
         # compute class weights
@@ -485,7 +498,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
         if self.use_sklearn:
             C = estimate_C_from_betas(self.beta_multiplier)
             self.initialize_sklearn_model(C)
-            self.estimator.fit(features, y, sample_weight=sample_weight)
+            self.estimator.fit(features_nominal, y, sample_weight=sample_weight)
             self.beta_scores_ = self.estimator.coef_[0]
 
         # model fitting with glmnet
@@ -493,7 +506,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
             # set feature regularization parameters
             self.regularization_ = compute_regularization(
                 y,
-                features,
+                features_nominal,
                 feature_labels=feature_labels,
                 beta_multiplier=self.beta_multiplier,
                 beta_lqp=self.beta_lqp,
@@ -508,7 +521,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
             # model fitting
             self.initialize_glmnet_model(lambdas=self.lambdas_)
             self.estimator.fit(
-                features,
+                features_nominal,
                 y,
                 sample_weight=sample_weight,
                 relative_penalties=self.regularization_,
@@ -526,7 +539,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
         # apply maxent-specific transformations
         class_transform = self.get_params()["transform"]
         self.set_params(transform="raw")
-        raw = self.predict(x[y == 0])
+        raw = self.predict(x_nominal[y == 0])
         self.set_params(transform=class_transform)
 
         # alpha is a normalizing constant that ensures that f1(z) integrates (sums) to 1
@@ -549,22 +562,36 @@ class MaxentModel(BaseEstimator, SDMMixin):
         if not self.initialized_:
             raise NotFittedError("Model must be fit first")
 
-        # feature transformations
-        x = x if self.preprocessor is None else self.preprocessor.transform(x)
-        features = x if self.transformer is None else self.transformer.transform(x)
+        if isinstance(x[0], ufloat): 
+            x_nominal = nominal_values(x)
+            x_stddev = std_devs(x)
+        else:
+            x_nominal = x
+            x_stddev = np.zeros_like(x)
+
+        # feature transforms
+        x_nominal = x_nominal if self.preprocessor is None else self.preprocessor.transform(x_nominal)
+        x_stddev = x_stddev if self.preprocessor is None else self.preprocessor.transform(x_stddev)
+
+        features_nominal = x_nominal if self.transformer is None else self.transformer.transform(x_nominal)
+        features_stddev = x_stddev if self.transformer is None else self.transformer.transform(x_stddev)
 
         # apply the model
-        engma = np.matmul(features, self.beta_scores_) + self.alpha_
+        engma_nominal = np.matmul(features_nominal, self.beta_scores_) + self.alpha_
+        engma_stddev = np.matmul(features_stddev, self.beta_scores_)  # Standard deviations from features
 
         # scale based on the transform type
         if self.transform == "raw":
-            return maxent_raw_transform(engma)
-
+            predictions_nominal = maxent_raw_transform(engma_nominal)
+            predictions_stddev = maxent_raw_transform(engma_stddev)
         elif self.transform == "logistic":
-            return maxent_logistic_transform(engma, self.entropy_, self.tau)
-
+            predictions_nominal = maxent_logistic_transform(engma_nominal, self.entropy_, self.tau)
+            predictions_stddev = maxent_logistic_transform(engma_stddev, self.entropy_, self.tau)
         elif self.transform == "cloglog":
-            return maxent_cloglog_transform(engma, self.entropy_)
+            predictions_nominal = maxent_cloglog_transform(engma_nominal, self.entropy_)
+            predictions_stddev = maxent_cloglog_transform(engma_stddev, self.entropy_)
+
+        return ufloat(predictions_nominal, predictions_stddev)
 
     def predict_proba(self, x: ArrayLike) -> ArrayLike:
         """Compute prediction probability scores for the 0/1 classes.
@@ -575,9 +602,28 @@ class MaxentModel(BaseEstimator, SDMMixin):
         Returns:
             predictions: array-like of shape (n_samples, 2) with model predictions
         """
-        ypred = self.predict(x).reshape(-1, 1)
-        predictions = np.hstack((1 - ypred, ypred))
+        ypred = self.predict(x)
 
+        if isinstance(ypred, ufloat):
+            ypred_nominal = nominal_values(ypred)
+            ypred_stddev = std_devs(ypred)
+        else:
+            ypred_nominal = ypred
+            ypred_stddev = np.zeros_like(ypred)
+
+        prob_class_1 = ypred_nominal
+        prob_class_0 = 1 - prob_class_1
+
+        prob_class_0_uncertainty = prob_class_0 * (ypred_stddev / ypred_nominal)
+        prob_class_1_uncertainty = prob_class_1 * (ypred_stddev / ypred_nominal)
+        
+        predictions = np.column_stack((prob_class_0, prob_class_1))
+        
+        ypred = self.predict(x).reshape(-1, 1)
+        # predictions = np.hstack((1 - ypred, ypred))
+    
+        predictions = np.column_stack((prob_class_0_uncertainty, prob_class_1_uncertainty))
+    
         return predictions
 
     def fit_predict(
@@ -605,6 +651,10 @@ class MaxentModel(BaseEstimator, SDMMixin):
         self.fit(x, y, categorical=categorical, labels=labels, preprocessor=preprocessor)
         predictions = self.predict(x)
 
+        if isinstance(predictions, ufloat):
+            nominal_predictions = nominal_values(predictions)
+            stddev_predictions = std_devs(predictions)
+            return nominal_predictions, stddev_predictions
         return predictions
 
     def initialize_glmnet_model(
