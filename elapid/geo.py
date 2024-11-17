@@ -887,7 +887,7 @@ def nearest_point_distance(
     return distance.mean(axis=1)
 
 
-def distance_weights(points: Vector, n_neighbors: int = -1, center: str = "median", cpu_count: int = -1) -> unumpy.ndarray:
+def distance_weights(points: Vector, n_neighbors: int = -1, center: str = "median", cpu_count: int = -1) -> unumpy.uarray:
     """Compute sample weights based on the distance between points.
 
     Assigns higher scores to isolated points, lower scores to clustered points.
