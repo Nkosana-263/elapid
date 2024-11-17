@@ -170,8 +170,13 @@ class SDMMixin:
         Returns:
             fig, ax: matplotlib subplot figure and axes.
         """
-        importance = self.permutation_importance_scores(x, y, sample_weight=sample_weight, n_repeats=n_repeats)
-        rank_order = importance.mean(axis=-1).argsort()
+        importance_dict = self.permutation_importance_scores(x, y, sample_weight=sample_weight, n_repeats=n_repeats)
+        
+        # Unpack the nominal and uncertainty importance scores
+        importance_nominal = importance_dict['nominal_importance']
+        importance_uncertainty = importance_dict['uncertainty_importance']
+        
+        rank_order = importance_nominal.mean(axis=-1).argsort()
 
         if labels is None:
             try:
@@ -180,17 +185,22 @@ class SDMMixin:
                 labels = make_band_labels(x.shape[-1])
         labels = [labels[idx] for idx in rank_order]
 
-        plot_defaults = {"dpi": 150, "figsize": (5, 4)}
+        plot_defaults = {"dpi": 150, "figsize": (10, 6)}
         plot_defaults.update(**kwargs)
-        fig, ax = plt.subplots(**plot_defaults)
-        ax.boxplot(
-            importance[rank_order].T,
-            vert=False,
-            labels=labels,
-        )
+        # fig, ax = plt.subplots(**plot_defaults)
+        fig, (ax_nominal, ax_uncertainty) = plt.subplots(1, 2, **plot_defaults)
+
+        # Plot the nominal permutation importance scores
+        ax_nominal.boxplot(importance_nominal[rank_order].T, vert=False, labels=labels)
+        ax_nominal.set_title("Nominal Permutation Importance")
+
+         # Plot the uncertainty in permutation importance scores
+        ax_uncertainty.boxplot(importance_uncertainty[rank_order].T, vert=False, labels=labels)
+        ax_uncertainty.set_title("Uncertainty in Permutation Importance")
+        
         fig.tight_layout()
 
-        return fig, ax
+        return fig, (ax_nominal, ax_uncertainty)
 
     def partial_dependence_scores(
         self,
