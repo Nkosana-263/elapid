@@ -59,7 +59,7 @@ class SDMMixin:
                 roc_auc_score(y, [p.nominal_value for p in predictions], sample_weight=sample_weight),
                 roc_auc_score(y, [p.std_dev for p in predictions], sample_weight=sample_weight)
                 ]
-            return np.mean(scores)
+            return unumpy.mean(scores)
 
         return roc_auc_score(y, predictions, sample_weight=sample_weight)
 
@@ -73,7 +73,7 @@ class SDMMixin:
         sample_weight: ArrayLike = None,
         n_repeats: int = 10,
         n_jobs: int = -1,
-    ) -> np.ndarray:
+    ) -> unumpy.ndarray:
         """Compute a generic feature importance score by modifying feature values
             and computing the relative change in model performance.
 
@@ -210,7 +210,7 @@ class SDMMixin:
         n_bins: int = 100,
         ci_level: float = 0.95,
         categorical_features: tuple = [None],
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[unumpy.ndarray, unumpy.ndarray, unumpy.ndarray, unumpy.ndarray, unumpy.ndarray]:
         """Compute partial dependence scores for each feature.
 
         Args:
@@ -224,11 +224,11 @@ class SDMMixin:
             bins, mean, stdv: the binned feature values and the mean/stdv of responses.
         """
         ncols = x.shape[1]
-        mean = np.zeros((ncols, n_bins))
-        stdv = np.zeros_like(mean)
-        bins = np.zeros_like(mean)
-        lower_ci = np.zeros_like(mean)
-        upper_ci = np.zeros_like(mean)
+        mean = unumpy.zeros((ncols, n_bins))
+        stdv = unumpy.zeros_like(mean)
+        bins = unumpy.zeros_like(mean)
+        lower_ci = unumpy.zeros_like(mean)
+        upper_ci = unumpy.zeros_like(mean)
 
          # Compute z-score for the desired confidence interval
         z_score = scistats.norm.ppf(1 - (1 - ci_level) / 2)
@@ -266,7 +266,7 @@ class SDMMixin:
         labels: list = None,
         ci_level: float = 0.95,
         **kwargs,
-    ) -> Tuple[plt.Figure, np.ndarray]:
+    ) -> Tuple[plt.Figure, unumpy.ndarray]:
         """Plot the response of an estimator across the range of feature values.
 
         Args:
@@ -299,8 +299,8 @@ class SDMMixin:
                 labels = make_band_labels(x.shape[-1])
 
         ncols = x.shape[1]
-        figx = int(np.ceil(np.sqrt(ncols)))
-        figy = int(np.ceil(ncols / figx))
+        figx = int(unumpy.ceil(unumpy.sqrt(ncols)))
+        figy = int(unumpy.ceil(ncols / figx))
         
         plot_defaults = {"dpi": 150, "figsize": (figx * 3, figy * 3)}
         plot_defaults.update(**kwargs)
@@ -567,7 +567,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
             x_stddev = std_devs(x)
         else:
             x_nominal = x
-            x_stddev = np.zeros_like(x)
+            x_stddev = unumpy.zeros_like(x)
 
         # feature transforms
         x_nominal = x_nominal if self.preprocessor is None else self.preprocessor.transform(x_nominal)
@@ -609,7 +609,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
             ypred_stddev = std_devs(ypred)
         else:
             ypred_nominal = ypred
-            ypred_stddev = np.zeros_like(ypred)
+            ypred_stddev = unumpy.zeros_like(ypred)
 
         prob_class_1 = ypred_nominal
         prob_class_0 = 1 - prob_class_1
@@ -617,12 +617,12 @@ class MaxentModel(BaseEstimator, SDMMixin):
         prob_class_0_uncertainty = prob_class_0 * (ypred_stddev / ypred_nominal)
         prob_class_1_uncertainty = prob_class_1 * (ypred_stddev / ypred_nominal)
         
-        predictions = np.column_stack((prob_class_0, prob_class_1))
+        predictions = unumpy.column_stack((prob_class_0, prob_class_1))
         
         ypred = self.predict(x).reshape(-1, 1)
         # predictions = np.hstack((1 - ypred, ypred))
     
-        predictions = np.column_stack((prob_class_0_uncertainty, prob_class_1_uncertainty))
+        predictions = unumpy.column_stack((prob_class_0_uncertainty, prob_class_1_uncertainty))
     
         return predictions
 
@@ -659,7 +659,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
 
     def initialize_glmnet_model(
         self,
-        lambdas: np.array,
+        lambdas: unumpy.array,
         alpha: float = 1,
         standardize: bool = False,
         fit_intercept: bool = True,
@@ -894,7 +894,7 @@ class EnsembleModel(BaseEstimator, SDMMixin):
         return ensemble
 
 
-def maxent_alpha(raw: np.ndarray) -> float:
+def maxent_alpha(raw: unumpy.ndarray) -> float:
     """Compute the sum-to-one alpha maxent model parameter.
 
     Args:
@@ -903,10 +903,10 @@ def maxent_alpha(raw: np.ndarray) -> float:
     Returns:
         alpha: the output sum-to-one scaling factor
     """
-    return -np.log(np.sum(raw))
+    return -unumpy.log(unumpy.sum(raw))
 
 
-def maxent_entropy(raw: np.ndarray) -> float:
+def maxent_entropy(raw: unumpy.ndarray) -> float:
     """Compute the maxent model entropy score for scaling the logistic output
 
     Args:
@@ -915,11 +915,11 @@ def maxent_entropy(raw: np.ndarray) -> float:
     Returns:
         entropy: background distribution entropy score
     """
-    scaled = raw / np.sum(raw)
-    return -np.sum(scaled * np.log(scaled))
+    scaled = raw / unumpy.sum(raw)
+    return -unumpy.sum(scaled * unumpy.log(scaled))
 
 
-def maxent_raw_transform(engma: np.ndarray) -> np.ndarray:
+def maxent_raw_transform(engma: unumpy.ndarray) -> unumpy.ndarray:
     """Compute maxent's raw suitability score
 
     Args:
@@ -928,10 +928,10 @@ def maxent_raw_transform(engma: np.ndarray) -> np.ndarray:
     Returns:
         the log-linear raw scores for each sample
     """
-    return np.exp(engma)
+    return unumpy.exp(engma)
 
 
-def maxent_logistic_transform(engma: np.ndarray, entropy: float, tau: float = MaxentConfig.tau) -> np.ndarray:
+def maxent_logistic_transform(engma: unumpy.ndarray, entropy: float, tau: float = MaxentConfig.tau) -> unumpy.ndarray:
     """Compute maxent's logistic suitability score
 
     Args:
@@ -945,11 +945,11 @@ def maxent_logistic_transform(engma: np.ndarray, entropy: float, tau: float = Ma
     # maxnet's (tau-free) logistic formulation:
     # return 1 / (1 + np.exp(-entropy - engma))
     # use java's formulation instead
-    logratio = np.exp(engma) * np.exp(entropy)
+    logratio = unumpy.exp(engma) * unumpy.exp(entropy)
     return (tau * logratio) / ((1 - tau) + (tau * logratio))
 
 
-def maxent_cloglog_transform(engma: np.ndarray, entropy: float) -> np.ndarray:
+def maxent_cloglog_transform(engma: unumpy.ndarray, entropy: float) -> unumpy.ndarray:
     """Compute maxent's cumulative log-log suitability score
 
     Args:
@@ -959,7 +959,7 @@ def maxent_cloglog_transform(engma: np.ndarray, entropy: float) -> np.ndarray:
     Returns:
         the cloglog scores for each sample
     """
-    return 1 - np.exp(-np.exp(engma) * np.exp(entropy))
+    return 1 - unumpy.exp(-unumpy.exp(engma) * unumpy.exp(entropy))
 
 
 def format_occurrence_data(y: ArrayLike) -> ArrayLike:
@@ -974,12 +974,12 @@ def format_occurrence_data(y: ArrayLike) -> ArrayLike:
     Raises:
         np.AxisError: an array with 2 or more columns is passed
     """
-    if not isinstance(y, np.ndarray):
-        y = np.array(y)
+    if not isinstance(y, unumpy.ndarray):
+        y = unumpy.array(y)
 
     if y.ndim > 1:
         if y.shape[1] > 1 or y.ndim > 2:
-            raise np.AxisError(f"Multi-column y data passed of shape {y.shape}. Must be 1d or 1 column.")
+            raise unumpy.AxisError(f"Multi-column y data passed of shape {y.shape}. Must be 1d or 1 column.")
         y = y.flatten()
 
     return y.astype("uint8")
@@ -994,4 +994,4 @@ def estimate_C_from_betas(beta_multiplier: float) -> float:
     Returns:
         a C factor approximating the level of regularization passed to glmnet
     """
-    return 2 / (1 - np.exp(-beta_multiplier))
+    return 2 / (1 - unumpy.exp(-beta_multiplier))
