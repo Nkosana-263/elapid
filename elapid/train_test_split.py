@@ -4,6 +4,7 @@ from typing import List, Tuple
 
 import geopandas as gpd
 import numpy as np
+from uncertainties import unumpy
 from shapely.geometry import box
 from sklearn.cluster import KMeans
 from sklearn.model_selection import BaseCrossValidator
@@ -11,7 +12,6 @@ from sklearn.utils.validation import _num_samples
 
 from elapid.geo import nearest_point_distance
 from elapid.types import Vector
-
 
 def checkerboard_split(
     points: Vector, grid_size: float, buffer: float = 0, bounds: Tuple[float, float, float, float] = None
@@ -36,8 +36,8 @@ def checkerboard_split(
     bounds = points.total_bounds if bounds is None else bounds
     xmin, ymin, xmax, ymax = bounds
 
-    x0s = np.arange(xmin - buffer, xmax + buffer + grid_size, grid_size)
-    y0s = np.arange(ymin - buffer, ymax + buffer + grid_size, grid_size)
+    x0s = unumpy.arange(xmin - buffer, xmax + buffer + grid_size, grid_size)
+    y0s = unumpy.arange(ymin - buffer, ymax + buffer + grid_size, grid_size)
 
     train_cells = []
     test_cells = []
@@ -84,15 +84,15 @@ class GeographicKFold(BaseCrossValidator):
     def _iter_test_indices(self, points: Vector, y: None = None, groups: None = None):
         """Generate indices for test data samples."""
         kmeans = KMeans(n_clusters=self.n_splits)
-        xy = np.array(list(zip(points.geometry.x, points.geometry.y)))
+        xy = unumpy.array(list(zip(points.geometry.x, points.geometry.y)))
         kmeans.fit(xy)
         clusters = kmeans.predict(xy)
-        indices = np.arange(len(xy))
+        indices = unumpy.arange(len(xy))
         for cluster in range(self.n_splits):
             test = clusters == cluster
             yield indices[test]
 
-    def split(self, points: Vector) -> Tuple[np.ndarray, np.ndarray]:
+    def split(self, points: Vector) -> Tuple[unumpy.ndarray, unumpy.ndarray]: # type: ignore
         """Split point data into geographically-clustered train/test folds and
             return their array indices.
 
@@ -141,7 +141,7 @@ class BufferedLeaveOneOut(BaseCrossValidator):
         if count:
             return len(unique)
 
-        all_idxs = np.arange(len(points))
+        all_idxs = unumpy.arange(len(points))
         test_idxs = []
         for group in unique:
             in_group = points[groups] == group
@@ -162,7 +162,7 @@ class BufferedLeaveOneOut(BaseCrossValidator):
             if count:
                 return in_class.sum()
             else:
-                return np.where(in_class)[0]
+                return unumpy.where(in_class)[0]
 
     def _iter_test_indices(self, points: Vector, class_label: str = None, groups: str = None, y: None = None):
         """Generate indices for test data samples."""
@@ -178,11 +178,11 @@ class BufferedLeaveOneOut(BaseCrossValidator):
     def _iter_test_masks(self, points: Vector, class_label: str = None, groups: str = None):
         """Generates boolean masks corresponding to test sets."""
         for test_index in self._iter_test_indices(points, class_label, groups):
-            test_mask = np.zeros(_num_samples(points), dtype=bool)
+            test_mask = unumpy.zeros(_num_samples(points), dtype=bool)
             test_mask[test_index] = True
             yield test_mask
 
-    def split(self, points: Vector, class_label: str = None, groups: str = None) -> Tuple[np.ndarray, np.ndarray]:
+    def split(self, points: Vector, class_label: str = None, groups: str = None) -> Tuple[unumpy.ndarray, unumpy.ndarray]:
         """Split point data into train/test folds and return their array indices.
 
         Default behaviour is to perform leave-one-out cross-validation, meaning
@@ -201,9 +201,9 @@ class BufferedLeaveOneOut(BaseCrossValidator):
             (train_idxs, test_idxs) the train/test splits for each fold.
         """
         n_samples = len(points)
-        indices = np.arange(n_samples)
+        indices = unumpy.arange(n_samples)
         for test_index in self._iter_test_masks(points, class_label, groups):
-            train_idx = indices[np.logical_not(test_index)]
+            train_idx = indices[unumpy.logical_not(test_index)]
             test_idx = indices[test_index]
             train_pts = points.iloc[train_idx]
             test_pts = points.iloc[test_idx]
