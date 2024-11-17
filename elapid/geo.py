@@ -34,7 +34,7 @@ tqdm = get_tqdm()
 
 
 def xy_to_geoseries(
-    x: Union[float, list, unumpy.ndarray], y: Union[float, list, unumpy.ndarray], crs: CRSType = "epsg:4326"
+    x: Union[float, list, unumpy.uarray], y: Union[float, list, unumpy.uarray], crs: CRSType = "epsg:4326"
 ) -> gpd.GeoSeries:
     """Converts x/y data into a geopandas geoseries.
 
