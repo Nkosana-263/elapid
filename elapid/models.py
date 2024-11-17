@@ -1,6 +1,7 @@
 """Classes for training species distribution models."""
 
 from typing import List, Tuple, Union
+from uncertainties import ufloat
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -49,7 +50,16 @@ class SDMMixin:
         Returns:
             AUC score of `self.predict(x)` w.r.t. `y`.
         """
-        return roc_auc_score(y, self.predict(x), sample_weight=sample_weight)
+
+        predictions = self.predict(x)
+        if isinstance(predictions[0], ufloat): # Check if predictions include uncertainty
+            scores = [
+                roc_auc_score(y, [p.nominal_value for p in predictions], sample_weight=sample_weight),
+                roc_auc_score(y, [p.std_dev for p in predictions], sample_weight=sample_weight)
+                ]
+            return np.mean(scores)
+
+        return roc_auc_score(y, predictions, sample_weight=sample_weight)
 
     def _more_tags(self):
         return {"requires_y": True}
