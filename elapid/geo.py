@@ -312,6 +312,7 @@ def crs_match(crs1: CRSType, crs2: CRSType) -> bool:
 def annotate(
     points: Union[str, gpd.GeoSeries, gpd.GeoDataFrame],
     raster_paths: Union[str, list],
+    std_raster_paths: Union[str, list], # for uncertainty calculations
     labels: list = None,
     drop_na: bool = True,
     quiet: bool = False,
@@ -333,6 +334,7 @@ def annotate(
     """
     # format the inputs
     raster_paths = to_iterable(raster_paths)
+    std_raster_paths = to_iterable(std_raster_paths)
     labels = format_band_labels(raster_paths, labels)
 
     # read raster values based on the points dtype
@@ -341,6 +343,7 @@ def annotate(
         gdf = annotate_geoseries(
             points,
             raster_paths,
+            std_raster_paths,
             labels=labels,
             drop_na=drop_na,
             quiet=quiet,
@@ -351,6 +354,7 @@ def annotate(
         gdf = annotate_geoseries(
             points.geometry,
             raster_paths,
+            std_raster_paths,
             labels=labels,
             drop_na=drop_na,
             quiet=quiet,
@@ -360,7 +364,7 @@ def annotate(
         gdf = pd.concat([points, gdf.drop(["geometry"], axis=1, errors="ignore")], axis=1)
 
     elif os.path.isfile(points):
-        gdf = annotate_vector(points, raster_paths, labels=labels, drop_na=drop_na, quiet=quiet)
+        gdf = annotate_vector(points, raster_paths, std_raster_paths, labels=labels, drop_na=drop_na, quiet=quiet)
 
     else:
         raise TypeError("points arg must be a valid path, GeoDataFrame, or GeoSeries")
