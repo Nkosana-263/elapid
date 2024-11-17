@@ -10,6 +10,7 @@ from urllib import request
 
 import geopandas as gpd
 import numpy as np
+from uncertainties import unumpy
 import pandas as pd
 import rasterio as rio
 
@@ -23,7 +24,7 @@ class NoDataException(Exception):
     pass
 
 
-def repeat_array(x: np.array, length: int = 1, axis: int = 0) -> np.ndarray:
+def repeat_array(x: unumpy.array, length: int = 1, axis: int = 0) -> unumpy.ndarray:
     """Repeats a 1D numpy array along an axis to an arbitrary length
 
     Args:
@@ -34,7 +35,7 @@ def repeat_array(x: np.array, length: int = 1, axis: int = 0) -> np.ndarray:
     Returns:
         An n+1 dimensional numpy array
     """
-    return np.expand_dims(x, axis=axis).repeat(length, axis=axis)
+    return unumpy.expand_dims(x, axis=axis).repeat(length, axis=axis)
 
 
 def load_sample_data(name: str = "ariolimax", drop_geometry: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -271,7 +272,7 @@ def n_digits(number: Number) -> int:
     if number == 0:
         order = 1
     else:
-        order = np.floor(np.log10(number)).astype(int) + 1
+        order = unumpy.floor(unumpy.log10(number)).astype(int) + 1
 
     return order
 
@@ -338,7 +339,7 @@ def square_factor(n: int) -> tuple:
     Returns:
         (x, y) tuple of the square dimensions.
     """
-    val = np.ceil(np.sqrt(n))
+    val = unumpy.ceil(unumpy.sqrt(n))
     val2 = int(n / val)
     while val2 * val != float(n):
         val -= 1
